@@ -124,6 +124,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # 4. 使用 args 中的参数初始化 swanlab
+    settings = swanlab.Settings(metadata_collect=False, collect_hardware=False, collect_runtime=False, requirements_collect=False, conda_collect=False, hardware_monitor=False)
     run = swanlab.init(
         project=args.project_name,
         experiment_name=args.experiment_name,
@@ -137,6 +138,8 @@ if __name__ == "__main__":
             "data_dir": args.data_dir,
             "output_dir": args.output_dir
         },
+        mode="local",
+        settings=settings
     )
 
     # 确保数据和输出目录存在
