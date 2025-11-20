@@ -79,7 +79,7 @@ if __name__ == "__main__":
     mlflow.set_tracking_uri("file://" + tracking_root)
     mlflow.set_experiment(args.experiment_name)
     mlflow.autolog()
-    with mlflow.start_run(run_name=args.experiment_name):
+    with mlflow.start_run(run_name=args.experiment_name, log_system_metrics=True):
         dataset = MNIST(args.data_dir, train=True, download=True, transform=ToTensor())
         train_dataset, val_dataset = utils.data.random_split(dataset, [55000, 5000])
         train_dataloader = utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
