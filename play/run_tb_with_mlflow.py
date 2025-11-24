@@ -30,14 +30,21 @@ def load_and_patch_writer(module_path, tracking_uri, experiment, run_name, artif
 
 def main():
     p = argparse.ArgumentParser(description="Run a TensorBoard script with MLflow bridge without modifying it")
-    p.add_argument("script", type=str, help="Path to the original TB script")
+    p.add_argument("script", type=str, nargs="?", help="Path to the original TB script")
     p.add_argument("--tracking-uri", type=str, default=os.environ.get("MLFLOW_TRACKING_URI", None))
     p.add_argument("--experiment", type=str, default="TensorBoard Sync")
     p.add_argument("--run-name", type=str, default="tb-bridge")
     p.add_argument("--artifact-path", type=str, default="tensorboard_logs")
     args, script_args = p.parse_known_args()
+    module_path = args.script
+    if not module_path:
+        if script_args:
+            module_path = script_args[0]
+            script_args = script_args[1:]
+        else:
+            raise SystemExit(2)
 
-    load_and_patch_writer(args.script, args.tracking_uri, args.experiment, args.run_name, args.artifact_path, script_args)
+    load_and_patch_writer(module_path, args.tracking_uri, args.experiment, args.run_name, args.artifact_path, script_args)
 
 if __name__ == "__main__":
     main()
