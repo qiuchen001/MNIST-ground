@@ -75,15 +75,14 @@ optimizer = optim.SGD(model.parameters(), lr=params["learning_rate"])
 
 
 with mlflow.start_run() as run:
-    logger.info("启动实时日志捕获...")
-    logger.info("训练开始：Epoch 1")
+    print("启动实时日志捕获...")
+    print("训练开始：Epoch 1")
 
     experiment_id = run.info.experiment_id
-    logger.info(f"当前实验ID: {experiment_id}")
     print(f"当前实验ID: {experiment_id}")
 
     run_id = run.info.run_id
-    logger.info(f"当前运行ID: {run_id}")
+    print(f"当前运行ID: {run_id}")
 
     job_name = os.getenv("VC_JOB_NAME") or "unknown-job"
     namespace = os.getenv("VC_NAMESPACE") or "default"
