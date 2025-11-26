@@ -11,7 +11,21 @@ class MLFWriter(SummaryWriter):
         if tracking_uri:
             mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment(experiment)
+        mlflow.config.enable_system_metrics_logging()
+        mlflow.config.set_system_metrics_sampling_interval(1)
+
+        job_name = os.getenv("VC_JOB_NAME") or "unknown-job"
+        namespace = os.getenv("VC_NAMESPACE") or "default"
+        pod_name = os.getenv("POD_NAME") or os.getenv("HOSTNAME") or ""
+        pod_uid = os.getenv("POD_UID") or ""
+
         self._run = mlflow.start_run(run_name=run_name)
+
+        mlflow.set_tag("vc.job_name", job_name)
+        mlflow.set_tag("vc.namespace", namespace)
+        mlflow.set_tag("vc.pod_name", pod_name)
+        mlflow.set_tag("vc.pod_uid", pod_uid)
+
         super().__init__(*args, **kwargs)
 
     def add_scalar(self, tag, scalar_value, global_step=None, *args, **kwargs):

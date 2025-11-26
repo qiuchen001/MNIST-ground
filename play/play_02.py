@@ -1,5 +1,6 @@
 import mlflow
 import logging
+import os
 from io import StringIO
 
 
@@ -95,6 +96,23 @@ optimizer = optim.SGD(model.parameters(), lr=params["learning_rate"])
 with mlflow.start_run() as run:
     logger.info("启动实时日志捕获...")
     logger.info("训练开始：Epoch 1")
+
+    experiment_id = run.info.experiment_id
+    logger.info(f"当前实验ID: {experiment_id}")
+    print(f"当前实验ID: {experiment_id}")
+
+    run_id = run.info.run_id
+    logger.info(f"当前运行ID: {run_id}")
+
+    job_name = os.getenv("VC_JOB_NAME") or "unknown-job"
+    namespace = os.getenv("VC_NAMESPACE") or "default"
+    pod_name = os.getenv("POD_NAME") or os.getenv("HOSTNAME") or ""
+    pod_uid = os.getenv("POD_UID") or ""
+
+    mlflow.set_tag("vc.job_name", job_name)
+    mlflow.set_tag("vc.namespace", namespace)
+    mlflow.set_tag("vc.pod_name", pod_name)
+    mlflow.set_tag("vc.pod_uid", pod_uid)
 
     # Log training parameters
     mlflow.log_params(params)
