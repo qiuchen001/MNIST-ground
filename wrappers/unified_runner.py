@@ -52,6 +52,7 @@ def main():
             print(f"Warning: Could not set or restore experiment {args.experiment}")
 
     # Start MLflow Run
+    mlflow.enable_system_metrics_logging()
     with mlflow.start_run(run_name=args.run_name) as run:
         print(f"Started MLflow Run: {run.info.run_id}")
         

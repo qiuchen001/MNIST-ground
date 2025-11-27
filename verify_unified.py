@@ -8,6 +8,17 @@ for i, run in runs.iterrows():
     print(f"Run ID: {run.run_id}")
     try:
         client = mlflow.tracking.MlflowClient()
+        run_data = client.get_run(run.run_id).data
+        print("Metrics found:")
+        for key in run_data.metrics.keys():
+            print(f"  - {key}")
+        
+        system_metrics = [k for k in run_data.metrics.keys() if k.startswith("system/")]
+        if system_metrics:
+            print(f"SUCCESS: Found {len(system_metrics)} system metrics.")
+        else:
+            print("FAILURE: No system metrics found.")
+
         local_path = client.download_artifacts(run.run_id, "logs/real_time_logs.log", dst_path=".")
         size = os.path.getsize(local_path)
         print(f"Log file size: {size} bytes")
@@ -19,4 +30,4 @@ for i, run in runs.iterrows():
         else:
             print("FAILURE: Log file is empty.")
     except Exception as e:
-        print(f"Error checking log file: {e}")
+        print(f"Error checking run: {e}")
