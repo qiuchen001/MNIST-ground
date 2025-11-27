@@ -71,6 +71,8 @@ class TeeStream:
         except Exception:
             raise
 
+import threading
+
 class ChunkedUploader:
     def __init__(self, base_path="logs/structured", max_lines=50, max_interval=1.0):
         self.base_path = base_path
@@ -81,22 +83,37 @@ class ChunkedUploader:
         self.part = 0
         self._last_text = ""
         self._session = []
+        self.lock = threading.Lock()
 
     def append(self, entry):
-        if isinstance(entry.get("text"), str):
-            if entry["text"] == self._last_text:
-                return
-            self._last_text = entry["text"]
-        self.buf.append(entry)
-        try:
-            self._session.append(entry)
-        except Exception:
-            pass
-        now = time.time()
-        if len(self.buf) >= self.max_lines or (now - self.last_flush) >= self.max_interval:
-            self.flush()
+        with self.lock:
+            if isinstance(entry.get("text"), str):
+                if entry["text"] == self._last_text:
+                    return
+                self._last_text = entry["text"]
+            self.buf.append(entry)
+            try:
+                self._session.append(entry)
+            except Exception:
+                pass
+            now = time.time()
+            if len(self.buf) >= self.max_lines or (now - self.last_flush) >= self.max_interval:
+                self._flush_unsafe()
 
     def flush(self):
+        # flush is called from append (already locked) or from close (needs lock if called externally, but close calls flush)
+        # However, to be safe against recursive locking if we used RLock, or just to be clear:
+        # If flush is called internally from append, we are already locked.
+        # If flush is called externally, we need a lock.
+        # Since we are using Lock (not RLock), we cannot re-acquire it.
+        # So we should separate the internal flush logic.
+        
+        # Actually, let's just make flush internal logic and have a public flush that takes the lock.
+        # But wait, append calls flush. If append takes the lock, it can't call a method that takes the lock again.
+        # So we will implement a _flush_unsafe method.
+        pass # Placeholder for the logic below
+
+    def _flush_unsafe(self):
         if not self.buf:
             return
         try:
@@ -121,6 +138,10 @@ class ChunkedUploader:
             self.buf.clear()
             self.last_flush = time.time()
             self.part += 1
+
+    def flush(self):
+        with self.lock:
+            self._flush_unsafe()
 
     def close(self):
         self.flush()

@@ -47,23 +47,24 @@ def main():
     cmd = [sys.executable, args.script]
     uploader = ChunkedUploader(base_path='logs/structured', max_lines=int(os.environ.get('LOG_CHUNK_LINES', '50')), max_interval=float(os.environ.get('LOG_CHUNK_INTERVAL', '1.0')))
 
-    def reader(pipe, name):
-        try:
-            for line in iter(pipe.readline, ''):
-                if not line:
-                    continue
-                txt = line.rstrip('\n').rstrip('\r')
-                if not txt:
-                    continue
-                uploader.append({'ts': time.time(), 'stream': name, 'text': txt})
-        finally:
-            try:
-                pipe.close()
-            except Exception:
-                pass
+
 
     env = dict(os.environ)
     env['PYTHONUNBUFFERED'] = env.get('PYTHONUNBUFFERED', '1')
+    
+    # Inject user site packages to PYTHONPATH to ensure correct package precedence
+    import site
+    try:
+        user_site = site.getusersitepackages()
+        if os.path.exists(user_site):
+            pythonpath = env.get('PYTHONPATH', '')
+            if pythonpath:
+                env['PYTHONPATH'] = f"{user_site}{os.pathsep}{pythonpath}"
+            else:
+                env['PYTHONPATH'] = user_site
+    except Exception:
+        pass
+
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, env=env)
 
     attached_run = {'id': None}
@@ -114,6 +115,15 @@ def main():
                             except Exception:
                                 pass
                         break
+                        break
+                
+                # Ensure we are attached to the run if it was started by watchdog or another thread
+                if attached_run['id'] is not None and mlflow.active_run() is None:
+                    try:
+                        mlflow.start_run(run_id=attached_run['id'])
+                    except Exception:
+                        pass
+
                 uploader.append({'ts': time.time(), 'stream': name, 'text': txt})
         finally:
             try:
@@ -133,6 +143,16 @@ def main():
             t_watch.join(timeout=max(0.5, attach_timeout))
         except Exception:
             pass
+        except Exception:
+            pass
+        
+        # Ensure main thread is attached to the run before closing uploader (which logs artifacts)
+        if attached_run['id'] is not None and mlflow.active_run() is None:
+            try:
+                mlflow.start_run(run_id=attached_run['id'])
+            except Exception:
+                pass
+
         uploader.close()
         try:
             import mlflow as _mlflow
@@ -142,6 +162,7 @@ def main():
             pass
     t_out.join(timeout=1.0)
     t_err.join(timeout=1.0)
+    sys.exit(rc)
 
 if __name__ == '__main__':
     main()
