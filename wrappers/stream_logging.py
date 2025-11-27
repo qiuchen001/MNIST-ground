@@ -107,6 +107,12 @@ class TeeStream:
             self.on_line({"ts": time.time(), "stream": self.name, "text": line})
         return r if isinstance(r, int) else len(s)
 
+    def flush(self):
+        try:
+            self.original.flush()
+        except Exception:
+            pass
+
     def isatty(self):
         try:
             return self.original.isatty()
