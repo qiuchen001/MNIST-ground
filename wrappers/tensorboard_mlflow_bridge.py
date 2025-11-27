@@ -4,13 +4,34 @@ import mlflow
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from PIL import Image
+import os
+import math
+import mlflow
+from torch.utils.tensorboard import SummaryWriter
+import numpy as np
+from PIL import Image
 
 class MLFWriter(SummaryWriter):
     def __init__(self, *args, tracking_uri=None, experiment="TensorBoard Sync", run_name="tb-bridge", artifact_path="tensorboard_logs", **kwargs):
         self._artifact_path = artifact_path
         if tracking_uri:
             mlflow.set_tracking_uri(tracking_uri)
-        mlflow.set_experiment(experiment)
+        
+        try:
+            mlflow.set_experiment(experiment)
+        except Exception:
+            try:
+                from mlflow.tracking import MlflowClient
+                client = MlflowClient()
+                exp = client.get_experiment_by_name(experiment)
+                if exp and getattr(exp, 'lifecycle_stage', '') == 'deleted':
+                    client.restore_experiment(exp.experiment_id)
+                    mlflow.set_experiment(experiment)
+                else:
+                    raise
+            except Exception:
+                # Fallback or re-raise
+                raise
         mlflow.config.enable_system_metrics_logging()
         mlflow.config.set_system_metrics_sampling_interval(1)
 
@@ -19,7 +40,12 @@ class MLFWriter(SummaryWriter):
         pod_name = os.getenv("POD_NAME") or os.getenv("HOSTNAME") or ""
         pod_uid = os.getenv("POD_UID") or ""
 
-        self._run = mlflow.start_run(run_name=run_name)
+        if mlflow.active_run():
+            self._run = mlflow.active_run()
+            self._owned_run = False
+        else:
+            self._run = mlflow.start_run(run_name=run_name)
+            self._owned_run = True
 
         mlflow.set_tag("vc.job_name", job_name)
         mlflow.set_tag("vc.namespace", namespace)
@@ -132,7 +158,8 @@ class MLFWriter(SummaryWriter):
             if mlflow.active_run() is not None:
                 mlflow.log_artifacts(self.log_dir, artifact_path=self._artifact_path)
         finally:
-            try:
-                mlflow.end_run()
-            except Exception:
-                pass
+            if getattr(self, '_owned_run', False):
+                try:
+                    mlflow.end_run()
+                except Exception:
+                    pass

@@ -3,6 +3,7 @@ from torch import nn, optim, utils
 from torchvision.datasets import FakeData
 from torchvision.transforms import ToTensor
 from torch.utils.tensorboard import SummaryWriter
+import sys
 
 def get_device():
     try:
@@ -66,8 +67,9 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     global_step = 0
-    num_epochs = 3
+    num_epochs = 5
     for epoch in range(1, num_epochs + 1):
+        print(f"Epoch {epoch}/{num_epochs}")
         global_step = train_one_epoch(model, train_loader, optimizer, criterion, writer, device, epoch, global_step)
         acc = evaluate(model, val_loader, device)
         writer.add_scalar("val/accuracy", acc, epoch)

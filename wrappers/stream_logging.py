@@ -30,6 +30,60 @@ class TeeStream:
         self.buf = ""
 
     def write(self, s):
+        # DEBUG
+        try:
+            sys.__stderr__.write(f"DEBUG: TeeStream write '{s}'\n")
+        except:
+            pass
+        r = self.original.write(s)
+        try:
+            self.original.flush()
+        except Exception:
+            pass
+        self.buf += s
+        # sys.__stderr__.write(f"DEBUG: buf '{self.buf}'\n")
+        while True:
+            nl_pos = self.buf.find("\n")
+            cr_pos = self.buf.find("\r")
+            cut_pos = -1
+            if nl_pos != -1 and cr_pos != -1:
+                cut_pos = min(nl_pos, cr_pos)
+            elif nl_pos != -1:
+                cut_pos = nl_pos
+            elif cr_pos != -1:
+                cut_pos = cr_pos
+import sys
+import time
+import json
+import logging
+import mlflow
+import tempfile
+import os
+
+class MLflowLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        from io import StringIO
+        self.buffer = StringIO()
+        self.on_emit = None
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.buffer.write(msg + "\n")
+        if self.on_emit is not None:
+            try:
+                self.on_emit({"ts": time.time(), "stream": "log", "level": record.levelname, "text": msg})
+            except Exception:
+                pass
+
+class TeeStream:
+    def __init__(self, original, name, on_line):
+        self.original = original
+        self.name = name
+        self.on_line = on_line
+        self.buf = ""
+
+    def write(self, s):
         r = self.original.write(s)
         try:
             self.original.flush()
@@ -52,12 +106,6 @@ class TeeStream:
             self.buf = self.buf[cut_pos + 1:]
             self.on_line({"ts": time.time(), "stream": self.name, "text": line})
         return r if isinstance(r, int) else len(s)
-
-    def flush(self):
-        try:
-            self.original.flush()
-        except Exception:
-            pass
 
     def isatty(self):
         try:
@@ -99,19 +147,6 @@ class ChunkedUploader:
             now = time.time()
             if len(self.buf) >= self.max_lines or (now - self.last_flush) >= self.max_interval:
                 self._flush_unsafe()
-
-    def flush(self):
-        # flush is called from append (already locked) or from close (needs lock if called externally, but close calls flush)
-        # However, to be safe against recursive locking if we used RLock, or just to be clear:
-        # If flush is called internally from append, we are already locked.
-        # If flush is called externally, we need a lock.
-        # Since we are using Lock (not RLock), we cannot re-acquire it.
-        # So we should separate the internal flush logic.
-        
-        # Actually, let's just make flush internal logic and have a public flush that takes the lock.
-        # But wait, append calls flush. If append takes the lock, it can't call a method that takes the lock again.
-        # So we will implement a _flush_unsafe method.
-        pass # Placeholder for the logic below
 
     def _flush_unsafe(self):
         if not self.buf:
@@ -208,10 +243,11 @@ class StdoutStderrInterceptor:
                 logging.getLogger().removeHandler(self.handler)
             except Exception:
                 pass
-            try:
-                mlflow.log_text(self.handler.buffer.getvalue(), artifact_file="logs/real_time_logs.log")
-            except Exception:
-                pass
+            # Removed redundant log_text call which was overwriting the logs uploaded by uploader.close()
+            # try:
+            #     mlflow.log_text(self.handler.buffer.getvalue(), artifact_file="logs/real_time_logs.log")
+            # except Exception:
+            #     pass
         for h, orig_stream in self._patched_handlers:
             try:
                 h.stream = orig_stream
