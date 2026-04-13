@@ -45,7 +45,7 @@ def objective(trial):
         mlflow.log_metrics({"error": error})
 
         # Log the model file
-        mlflow.sklearn.log_model(regressor_obj, name="model")
+        mlflow.sklearn.log_model(regressor_obj, artifact_path="model")
         # Make it easy to retrieve the best-performing child run later
         trial.set_user_attr("run_id", child_run.info.run_id)
         return error
