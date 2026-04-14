@@ -181,7 +181,7 @@ with mlflow.start_run() as run:
             step=epoch,
         )
         # Log checkpoint at the end of each epoch
-        mlflow.pytorch.log_model(model, name=f"checkpoint_{epoch}")
+        mlflow.pytorch.log_model(model, artifact_path=f"checkpoint_{epoch}")
 
         print(
             f"Epoch {epoch+1}/{params['epochs']}, "
@@ -190,7 +190,7 @@ with mlflow.start_run() as run:
         )
 
     # Log the final trained model
-    model_info = mlflow.pytorch.log_model(model, name="final_model")
+    model_info = mlflow.pytorch.log_model(model, artifact_path="final_model")
 
     # 直接将缓冲区内容上传到 MLflow（无需本地文件）
     log_content = handler.buffer.getvalue()
